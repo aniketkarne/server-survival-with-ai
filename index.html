@@ -12,6 +12,7 @@
   <script src="src/locales/pt-BR.js"></script>
   <script src="src/locales/de.js"></script>
   <script src="src/locales/fr.js"></script>
+  <script src="src/locales/nep.js"></script>
   <script src="src/i18n.js"></script>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -275,6 +276,7 @@
           <option value="pt-BR" class="bg-gray-800 text-white">PT-BR</option>
           <option value="de" class="bg-gray-800 text-white">DE</option>
           <option value="fr" class="bg-gray-800 text-white">FR</option>
+          <option value="nep" class="bg-gray-800 text-white">NE</option>
         </select>
       </div>
       <button onclick="showSaveModal()" id="btn-save"
@@ -800,7 +802,7 @@
           Save in Browser
         </button>
 
-        <button onclick="saveGameState('file')" id="load-btn"
+        <button onclick="saveGameState('file')" id="download-btn"
           data-i18n="save_download"
           class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 px-8 rounded-lg shadow-lg transform transition hover:scale-105 font-mono uppercase text-lg border border-purple-400/50">
           Download Save File

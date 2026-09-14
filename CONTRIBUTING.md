@@ -34,6 +34,8 @@ This project uses vanilla JavaScript, HTML, and CSS with Three.js. No build step
     *   `services/`: Systems like `SoundService`.
     *   `config.js`: Game configuration constants.
     *   `state.js`: Global game state.
+    *   `i18n.js`: Locale loader and translation lookup.
+    *   `locales/`: Translation dictionaries. Each file exports a `*_TRANSLATIONS` object and is loaded by `index.html`. To add a new language: create `src/locales/<code>.js` exporting `<CODE>_TRANSLATIONS`, add a `<script>` tag to `index.html`, register it in `src/i18n.js`, and add an `<option value="<code>">` to `#lang-select`.
 
 ## Code Style
 
