@@ -391,6 +391,7 @@ const EN_TRANSLATIONS = {
     "max": "Max",
     "reason_malicious": "{count} malicious attacks bypassed your defenses.",
     "reason_failed_type": "{count} {type} requests failed due to capacity or missing paths.",
+    "tip_waf": "Place a Firewall directly connected to the Internet to block malicious traffic",
     "tip_multiple_waf": "Deploy multiple Firewalls to handle large attack surges",
     "waf": "Firewall",
     "alb": "Load Balancer",
