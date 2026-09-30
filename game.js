@@ -1303,7 +1303,6 @@ function updateScore(req, outcome) {
     if (outcome === "MALICIOUS_BLOCKED") {
         STATE.score.maliciousBlocked += points.MALICIOUS_BLOCKED_SCORE;
         STATE.score.total += points.MALICIOUS_BLOCKED_SCORE;
-        STATE.score.total += points.MALICIOUS_BLOCKED_SCORE;
 
         // Mitigation cost for blocking attacks
         const mitigationCost = CONFIG.survival.SCORE_POINTS.MALICIOUS_MITIGATION_COST || 1.0;
@@ -1316,7 +1315,6 @@ function updateScore(req, outcome) {
         req.type === TRAFFIC_TYPES.MALICIOUS &&
         outcome === "MALICIOUS_PASSED"
     ) {
-        STATE.reputation += points.MALICIOUS_PASSED_REPUTATION;
         STATE.reputation += points.MALICIOUS_PASSED_REPUTATION;
         STATE.failures.MALICIOUS++;
 
@@ -3059,7 +3057,7 @@ window.onSaveGameFileUpload = (event) => {
             STATE.sound.playPlace(); // Use place sound as feedback
         } catch (error) {
             console.error("Failed to load game:", error);
-            alert(i18n.t('load_failed'));
+            alert(i18n.t('load_failed_corrupted'));
         }
     };
     reader.readAsText(file);

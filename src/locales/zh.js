@@ -399,6 +399,7 @@ const ZH_TRANSLATIONS = {
     "max": "最高",
     "reason_malicious": "{count} 次恶意攻击穿透了你的防御。",
     "reason_failed_type": "{count} 次 {type} 请求由于容量不足或路径缺失而失败。",
+    "tip_waf": "将防火墙直接连接到互联网以阻止恶意流量",
     "tip_multiple_waf": "部署多个防火墙以应对大规模攻击激增",
     "waf": "防火墙",
     "alb": "负载均衡器",
