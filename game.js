@@ -655,51 +655,29 @@ function updateFinancesDisplay() {
     if (incomeTotal)
         incomeTotal.textContent = `$${Math.floor(f.income.total || 0)}`;
 
-    // Expense categories - services with costs
-    const serviceTypes = [
-        {
-            key: "waf",
-            label: i18n.t('firewall'),
-            color: "text-red-400",
-            cost: CONFIG.services.waf.cost,
-        },
-        {
-            key: "alb",
-            label: i18n.t('load_balancer'),
-            color: "text-blue-400",
-            cost: CONFIG.services.alb.cost,
-        },
-        {
-            key: "compute",
-            label: i18n.t('compute'),
-            color: "text-green-400",
-            cost: CONFIG.services.compute.cost,
-        },
-        {
-            key: "db",
-            label: i18n.t('relational_db'),
-            color: "text-yellow-400",
-            cost: CONFIG.services.db.cost,
-        },
-        {
-            key: "s3",
-            label: i18n.t('file_storage'),
-            color: "text-purple-400",
-            cost: CONFIG.services.s3.cost,
-        },
-        {
-            key: "cache",
-            label: i18n.t('memory_cache'),
-            color: "text-orange-400",
-            cost: CONFIG.services.cache.cost,
-        },
-        {
-            key: "sqs",
-            label: i18n.t('message_queue'),
-            color: "text-cyan-400",
-            cost: CONFIG.services.sqs.cost,
-        },
-    ];
+    // Expense categories - services with costs.
+    // Derived from CONFIG.services so a newly added service shows up in the
+    // breakdown automatically. The hardcoded list only covered the seven
+    // original services, so CDN, API Gateway and NoSQL spend was recorded in
+    // expenses.byService but never displayed.
+    const serviceColors = {
+        waf: "text-red-400",
+        alb: "text-blue-400",
+        compute: "text-green-400",
+        db: "text-yellow-400",
+        s3: "text-purple-400",
+        cache: "text-orange-400",
+        sqs: "text-cyan-400",
+        cdn: "text-emerald-400",
+        apigw: "text-fuchsia-400",
+        nosql: "text-violet-400",
+    };
+    const serviceTypes = Object.keys(CONFIG.services).map((key) => ({
+        key,
+        label: i18n.t(key),
+        color: serviceColors[key] || "text-gray-300",
+        cost: CONFIG.services[key].cost,
+    }));
 
     const repairPercent = CONFIG.survival.degradation?.repairCostPercent || 0.15;
 
@@ -938,54 +916,7 @@ function resetGame(mode = "survival") {
     STATE.autoRepairEnabled = false;
 
     // Initialize detailed finance tracking
-    STATE.finances = {
-        income: {
-            byType: {
-                STATIC: 0,
-                READ: 0,
-                WRITE: 0,
-                UPLOAD: 0,
-                SEARCH: 0,
-            },
-            countByType: {
-                STATIC: 0,
-                READ: 0,
-                WRITE: 0,
-                UPLOAD: 0,
-                SEARCH: 0,
-                blocked: 0,
-            },
-            requests: 0, // Total from all request types
-            blocked: 0, // From blocking attacks
-            total: 0, // Grand total income
-        },
-        expenses: {
-            services: 0, // One-time service purchase costs
-            upkeep: 0, // Running upkeep costs
-            repairs: 0, // Manual repair costs
-            autoRepair: 0, // Auto-repair overhead costs
-            byService: {
-                // Breakdown by service type (upkeep + repairs)
-                waf: 0,
-                alb: 0,
-                compute: 0,
-                db: 0,
-                s3: 0,
-                cache: 0,
-                sqs: 0,
-            },
-            countByService: {
-                // Count of each service purchased
-                waf: 0,
-                alb: 0,
-                compute: 0,
-                db: 0,
-                s3: 0,
-                cache: 0,
-                sqs: 0,
-            },
-        },
-    };
+    STATE.finances = createFinances(Object.keys(CONFIG.services));
 
     // Reset auto-repair toggle UI
     const autoRepairBtn = document.getElementById("auto-repair-toggle");
@@ -2975,27 +2906,7 @@ window.closeSaveModal = () => {
 // Function to save game state to localStorage or download as file (triggered from UI inside save modal)
 window.saveGameState = (saveAs = "browser") => {
     try {
-        const saveData = {
-            timestamp: Date.now(),
-            version: "2.0",
-            ...STATE,
-            score: { ...STATE.score },
-            trafficDistribution: { ...STATE.trafficDistribution },
-            services: STATE.services.map((service) => ({
-                id: service.id,
-                type: service.type,
-                position: [service.position.x, service.position.y, service.position.z],
-                connections: [...service.connections],
-                tier: service.tier,
-                cacheHitRate: service.config.cacheHitRate || null,
-            })),
-            connections: STATE.connections.map((conn) => ({
-                from: conn.from,
-                to: conn.to,
-            })),
-            requests: [],
-            internetConnections: [...STATE.internetNode.connections],
-        };
+        const saveData = buildSavePayload(STATE);
 
         if(saveAs === "file")
             downloadSaveFile(saveData);
@@ -3132,39 +3043,17 @@ function loadGameState(saveData = null) {
 
         clearCurrentGame();
 
-        STATE.money = saveData.money || 0;
-        STATE.reputation = saveData.reputation || 100;
-        STATE.requestsProcessed = saveData.requestsProcessed || 0;
-        STATE.score = { ...saveData.score } || {
-            total: 0,
-            storage: 0,
-            database: 0,
-            maliciousBlocked: 0,
-        };
-        STATE.activeTool = saveData.activeTool || "select";
-        STATE.selectedNodeId = saveData.selectedNodeId || null;
-        STATE.lastTime = performance.now(); // Reset timing
-        STATE.spawnTimer = saveData.spawnTimer || 0;
-        STATE.currentRPS = saveData.currentRPS || 0.5;
-        STATE.timeScale = saveData.timeScale || 0; // Start paused
-        STATE.elapsedGameTime = saveData.elapsedGameTime ?? 0;
-        STATE.isRunning = saveData.isRunning || false;
-        STATE.gameStartTime = performance.now();
+        // Restore the persisted fields in one place. The previous inline
+        // copy used `||` for every field, so a legitimately-zero value
+        // (reputation 0, currentRPS 0 in sandbox) was replaced by the
+        // fallback, and `...saveData.score || {defaults}` never ran its
+        // fallback because spreading undefined yields {} (truthy) - a
+        // corrupted save left score.total undefined and the HUD printed
+        // "undefined".
+        restoreSaveState(STATE, saveData);
 
-        STATE.gameMode = saveData.gameMode || "survival";
-        STATE.sandboxBudget = saveData.sandboxBudget || 2000;
-        STATE.upkeepEnabled = saveData.upkeepEnabled !== false;
-        STATE.trafficDistribution = { ...saveData.trafficDistribution } || {
-            STATIC: 0.3,
-            READ: 0.2,
-            WRITE: 0.15,
-            UPLOAD: 0.05,
-            SEARCH: 0.1,
-            MALICIOUS: 0.2,
-        };
-        STATE.burstCount = saveData.burstCount || 10;
-        STATE.gameStarted = saveData.gameStarted || true;
-        STATE.previousTimeScale = saveData.previousTimeScale || 1;
+        STATE.lastTime = performance.now(); // Reset timing
+        STATE.gameStartTime = performance.now();
 
         // Initialize intervention state for survival mode mechanics
         if (STATE.gameMode === "survival") {
@@ -3189,31 +3078,10 @@ function loadGameState(saveData = null) {
             STATE.autoRepairEnabled = false;
         }
 
-        // Initialize finances tracking
-        STATE.finances = {
-            income: {
-                byType: { STATIC: 0, READ: 0, WRITE: 0, UPLOAD: 0, SEARCH: 0 },
-                countByType: { STATIC: 0, READ: 0, WRITE: 0, UPLOAD: 0, SEARCH: 0, blocked: 0 },
-                requests: 0,
-                blocked: 0,
-                total: 0,
-            },
-            expenses: {
-                services: 0,
-                upkeep: 0,
-                repairs: 0,
-                autoRepair: 0,
-                mitigation: 0,
-                breach: 0,
-                byService: { waf: 0, alb: 0, compute: 0, db: 0, s3: 0, cache: 0, sqs: 0 },
-                countByService: { waf: 0, alb: 0, compute: 0, db: 0, s3: 0, cache: 0, sqs: 0 },
-            },
-        };
-
-        restoreServices(saveData.services);
+        restoreServices(saveData.services || []);
 
         restoreConnections(
-            saveData.connections,
+            saveData.connections || [],
             saveData.internetConnections || []
         );
 
