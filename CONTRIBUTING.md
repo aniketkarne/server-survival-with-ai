@@ -34,6 +34,7 @@ This project uses vanilla JavaScript, HTML, and CSS with Three.js. No build step
     *   `services/`: Systems like `SoundService`.
     *   `config.js`: Game configuration constants.
     *   `state.js`: Global game state.
+    *   `save.js`: Save file serialization and restore.
 
 ## Code Style
 
