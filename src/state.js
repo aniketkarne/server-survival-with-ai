@@ -70,29 +70,6 @@ const STATE = {
     maliciousSpikeActive: false,
     normalTrafficDist: null,
 
-    // Intervention mechanics state
-    intervention: {
-        // Traffic shift state
-        trafficShiftTimer: 0,
-        trafficShiftActive: false,
-        currentShift: null,
-        originalTrafficDist: null,
-
-        // Random events state
-        randomEventTimer: 0,
-        activeEvent: null,
-        eventEndTime: 0,
-        pausedEvent: null,
-        remainingTime: 0,
-
-        // RPS milestone tracking
-        currentMilestoneIndex: 0,
-        rpsMultiplier: 1.0,
-
-        // Event history for UI
-        recentEvents: [],
-
-        // Warning state
-        warnings: []
-    }
+    // Intervention mechanics state (shared factory so tests can pin the shape)
+    intervention: createInterventionState()
 };

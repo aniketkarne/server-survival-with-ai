@@ -334,18 +334,30 @@ function updateRandomEvents(dt) {
     }
 }
 
+// Reset all intervention state for a new game (restart, retry or load).
+// Every field lives on STATE.intervention, so replacing the whole block is
+// what keeps one game's events from leaking into the next: live effect
+// multipliers, the event bar, traffic-shift bookkeeping, RPS milestone
+// high-water marks and the (unbounded) warnings list.
+function resetInterventionState() {
+    STATE.intervention = createInterventionState();
+    STATE.maliciousSpikeTimer = 0;
+    STATE.maliciousSpikeActive = false;
+    STATE.normalTrafficDist = null;
+    STATE.autoRepairEnabled = false;
+    hideActiveEventBar();
+}
+
 window.handleGameState = (timeScale) => {
     if (timeScale === 0) { // pause state
-        STATE.intervention.pausedEvent = STATE.intervention.activeEvent;
-        STATE.intervention.remainingTime = STATE.intervention.eventEndTime - Date.now();
+        pauseActiveEvent(STATE.intervention, Date.now());
         endRandomEvent();
-    } else if (STATE.intervention.pausedEvent) { // not paused state
-        triggerRandomEvent(
-            STATE.intervention.pausedEvent,
-            STATE.intervention.remainingTime
-        );
-        STATE.intervention.pausedEvent = null;
-        STATE.intervention.remainingTime = 0;
+    } else {
+        // Resume: restore the event the pause recorded, if it still had
+        // time left. An event that expired while paused ends instead of
+        // restarting at full duration.
+        const paused = takePausedEvent(STATE.intervention);
+        if (paused) triggerRandomEvent(paused.eventType, paused.duration);
     }
 
     window.setTimeScale(timeScale);
@@ -360,7 +372,9 @@ function triggerRandomEvent(
     const config = CONFIG.survival.randomEvents;
     if (!eventType)
         eventType = config.types[Math.floor(Math.random() * config.types.length)];
-    if (!duration) duration = 30000; // 30 seconds
+    // `== null` on purpose: a resume passing an explicit 0 (or negative)
+    // duration means "already expired", not "use the default".
+    if (duration == null) duration = 30000; // 30 seconds
 
     STATE.intervention.activeEvent = eventType;
     STATE.intervention.eventEndTime = Date.now() + duration;
@@ -932,10 +946,7 @@ function resetGame(mode = "survival") {
     // Initialize balance overhaul state
     STATE.elapsedGameTime = 0;
     STATE.gameStartTime = performance.now();
-    STATE.maliciousSpikeTimer = 0;
-    STATE.maliciousSpikeActive = false;
-    STATE.normalTrafficDist = null;
-    STATE.autoRepairEnabled = false;
+    resetInterventionState();
 
     // Initialize detailed finance tracking
     STATE.finances = {
@@ -1103,7 +1114,7 @@ function toggleAutoRepair() {
             btn.textContent = i18n.t('upkeep_off');
             btn.classList.remove("text-green-400");
             btn.classList.add("text-gray-400");
-            addInterventionWarning(i18n.t('event_ended'), "info", 2000);
+            addInterventionWarning(i18n.t('auto_repair_off_msg'), "info", 2000);
         }
     }
     updateRepairCostTable();
@@ -3166,28 +3177,10 @@ function loadGameState(saveData = null) {
         STATE.gameStarted = saveData.gameStarted || true;
         STATE.previousTimeScale = saveData.previousTimeScale || 1;
 
-        // Initialize intervention state for survival mode mechanics
-        if (STATE.gameMode === "survival") {
-            STATE.intervention = {
-                trafficShiftTimer: 0,
-                trafficShiftActive: false,
-                currentShift: null,
-                originalTrafficDist: null,
-                randomEventTimer: 0,
-                activeEvent: null,
-                eventEndTime: 0,
-                currentMilestoneIndex: 0,
-                rpsMultiplier: 1.0,
-                recentEvents: [],
-                warnings: [],
-                costMultiplier: 1.0,
-                trafficBurstMultiplier: 1.0,
-            };
-            STATE.maliciousSpikeTimer = 0;
-            STATE.maliciousSpikeActive = false;
-            STATE.normalTrafficDist = null;
-            STATE.autoRepairEnabled = false;
-        }
+        // Reset intervention state for every load, both game modes (a
+        // survival event must not keep spawning 3x traffic in a sandbox
+        // save, where the expiry check never runs)
+        resetInterventionState();
 
         // Initialize finances tracking
         STATE.finances = {
